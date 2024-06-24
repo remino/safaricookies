@@ -2,26 +2,27 @@
 
 # -*- coding: utf-8 -*-
 
-# Based on:
-# https://github.com/crawlaio/binarycookiesreader/blob/main/bcr/main.py
+# https://github.com/remino/safaricookies
 
-import argparse
 from io import BytesIO
 from struct import unpack
 from time import gmtime, strftime
+import sys
 
 
-def parse(input_file: str = "Cookies.binarycookies",
-          output_file: str = "Cookies.txt"):
-	binary_file = open(input_file, "rb")
-	file_header = binary_file.read(4)
+def parse():
+	input_file = sys.stdin.buffer
+	file_header = input_file.read(4)
+	output_file = sys.stdout
 	if file_header == b"cook":
-		num_pages = unpack(">i", binary_file.read(4))[0]
+		num_pages = unpack(">i", input_file.read(4))[0]
 		page_sizes = [
-		    unpack(">i", binary_file.read(4))[0] for _ in range(num_pages)
+		    unpack(">i", input_file.read(4))[0] for _ in range(num_pages)
 		]
-		pages = [binary_file.read(ps) for ps in page_sizes]
-		cookie_info_list = ["# Netscape HTTP Cookie File"]
+		pages = [input_file.read(ps) for ps in page_sizes]
+
+		output_file.write("# Netscape HTTP Cookie File\n")
+		output_file.flush()
 
 		for index, page in enumerate(pages):
 			page = BytesIO(page)
@@ -52,15 +53,14 @@ def parse(input_file: str = "Cookies.binarycookies",
 				else:
 					secure = False
 					cookie_flags = "Unknown"
-				cookie.read(4)
+				cookie.read(4)  # unused field
 				urloffset = unpack("<i", cookie.read(4))[0]
 				nameoffset = unpack("<i", cookie.read(4))[0]
 				pathoffset = unpack("<i", cookie.read(4))[0]
 				valueoffset = unpack("<i", cookie.read(4))[0]
-				cookie.read(8)
+				cookie.read(8)  # unused field
 				expiry_date_epoch = unpack("<d", cookie.read(8))[0] + 978307200
-				_creation_date_epoch = unpack(
-				    "<d", cookie.read(8))[0] + 978307200  # Ignore this data
+				cookie.read(8)  # unused creation time
 				expiry_date = strftime("%a, %d %b %Y ",
 				                       gmtime(expiry_date_epoch))[:-1]
 				expiry_date_epoch = int(expiry_date_epoch)
@@ -95,35 +95,18 @@ def parse(input_file: str = "Cookies.binarycookies",
 				# Output Netscape cookie format
 				# domain for-subdomains path secure expiration name value
 				cookie_info = f"{url}	{str(subdomain).upper()}	{path}	{str(secure).upper()}	{expiry_date_epoch}	{name}	{value}"
-				cookie_info_list.append(cookie_info)
-		with open(output_file, "w") as f:
-			f.write("\n".join(cookie_info_list))
-			f.write("\n")
-		binary_file.close()
+				output_file.write(cookie_info + "\n")
+				output_file.flush()
+		output_file.close()
+		input_file.close()
 		return "success"
 	else:
-		binary_file.close()
+		input_file.close()
 		raise
 
 
 def main():
-	argparser = argparse.ArgumentParser()
-	argparser.add_argument("-i",
-	                       "--input",
-	                       type=str,
-	                       default="Cookies.binarycookies",
-	                       help="Cookies.binarycookies File Path")
-	argparser.add_argument("-o",
-	                       "--output",
-	                       type=str,
-	                       default="Cookies.txt",
-	                       help="Result File Path")
-	args = argparser.parse_args()
-	if args.input and args.output:
-		try:
-			parse(input_file=args.input, output_file=args.output)
-		except Exception as e:
-			raise
+	parse()
 
 
 if __name__ == '__main__':

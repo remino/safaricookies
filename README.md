@@ -5,7 +5,7 @@ Quick and dirty Python 3 script to parse Safari binary cookies and export them t
 ## Usage
 
 ```sh
-./safaricookies -i ~/Library/Cookies/Cookies.binarycookies -o cookies.txt
+./safaricookies < ~/Library/Cookies/Cookies.binarycookies > cookies.txt
 ```
 
 ## Based on
